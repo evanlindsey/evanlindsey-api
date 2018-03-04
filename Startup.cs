@@ -32,6 +32,8 @@ namespace EvanLindseyApi
 
             services.Configure<AuthSettings>(options => options.SECRET = secret);
 
+            services.AddCors();
+
             services.AddAuthentication(options =>
                     {
                         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -58,20 +60,29 @@ namespace EvanLindseyApi
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
+            string clientHost;
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
+
+                clientHost = "http://localhost:4200";
             }
+            else
+                clientHost = Environment.GetEnvironmentVariable("CLIENT_HOST");
+
+            app.UseCors(cors =>
+                        cors.WithOrigins(clientHost)
+                            .AllowAnyMethod()
+                            .AllowAnyHeader()
+                            .AllowCredentials());
 
             app.UseDefaultFiles();
             app.UseStaticFiles();
 
             app.UseAuthentication();
 
-            app.UseSignalR(routes =>
-            {
-                routes.MapHub<MessageHub>("/messagehub");
-            });
+            app.UseSignalR(routes => routes.MapHub<MessageHub>("/messagehub"));
 
             app.UseMvc();
         }
