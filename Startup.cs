@@ -10,6 +10,7 @@ using Microsoft.IdentityModel.Tokens;
 
 using EvanLindseyApi.Hubs;
 using EvanLindseyApi.Models;
+using EvanLindseyApi.Extensions;
 
 namespace EvanLindseyApi
 {
@@ -39,21 +40,23 @@ namespace EvanLindseyApi
                         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                         options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
                     })
-                    .AddJwtBearer(cfg =>
+                    .AddJwtBearer(options =>
                     {
-                        cfg.RequireHttpsMetadata = false;
-                        cfg.SaveToken = true;
-                        cfg.TokenValidationParameters = new TokenValidationParameters()
+                        options.RequireHttpsMetadata = false;
+                        options.SaveToken = true;
+                        options.TokenValidationParameters = new TokenValidationParameters()
                         {
                             IssuerSigningKey = new SymmetricSecurityKey(key),
                             ValidateIssuerSigningKey = true,
                             ValidateAudience = false,
                             ValidateLifetime = false,
-                            ValidateIssuer = false,
+                            ValidateIssuer = false
                         };
                     });
 
             services.AddSignalR();
+
+            services.AddSwaggerDocs();
 
             services.AddMvc();
         }
@@ -71,11 +74,13 @@ namespace EvanLindseyApi
             else
                 clientHost = Environment.GetEnvironmentVariable("CLIENT_HOST");
 
-            app.UseCors(cors =>
-                        cors.WithOrigins(clientHost)
-                            .AllowAnyMethod()
-                            .AllowAnyHeader()
-                            .AllowCredentials());
+            app.UseCors(policy =>
+                {
+                    policy.WithOrigins(clientHost);
+                    policy.AllowAnyMethod();
+                    policy.AllowAnyHeader();
+                    policy.AllowCredentials();
+                });
 
             app.UseDefaultFiles();
             app.UseStaticFiles();
@@ -83,6 +88,8 @@ namespace EvanLindseyApi
             app.UseAuthentication();
 
             app.UseSignalR(routes => routes.MapHub<MessageHub>("/messagehub"));
+
+            app.UseSwaggerDocs();
 
             app.UseMvc();
         }
