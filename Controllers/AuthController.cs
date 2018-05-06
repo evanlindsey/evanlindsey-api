@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 using EvanLindseyApi.Models;
+using System;
 
 namespace EvanLindseyApi.Controllers
 {
@@ -25,27 +26,25 @@ namespace EvanLindseyApi.Controllers
             _authSettings = authSettings.Value;
         }
 
-        private string CreateToken(User u)
+        private string CreateToken(User user)
         {
             string secret = _authSettings.SECRET;
-            var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-            var signingCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
-            var claims = new Claim[] { new Claim(JwtRegisteredClaimNames.Sub, u.Id.ToString()) };
-            var jwt = new JwtSecurityToken(claims: claims, signingCredentials: signingCredentials);
-            return new JwtSecurityTokenHandler().WriteToken(jwt);
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var claims = new Claim[] { new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()) };
+            var token = new JwtSecurityToken(claims: claims, signingCredentials: credentials);
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        private OkObjectResult AuthResult(User u)
+        private OkObjectResult AuthResult(User user)
         {
-            string token = CreateToken(u);
-
             return Ok(
                 new
                 {
-                    UserName = u.UserName,
-                    FirstName = u.FirstName,
-                    LastName = u.LastName,
-                    Token = token
+                    UserName = user.UserName,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Token = CreateToken(user)
                 }
             );
         }
@@ -55,39 +54,38 @@ namespace EvanLindseyApi.Controllers
         public IActionResult Get()
         {
             string id = HttpContext.User.Claims.First().Value;
-            User user = _context.Users.SingleOrDefault(u => u.Id.ToString() == id);
-
+            int userId = Convert.ToInt32(id);
+            var user = _context.Users.SingleOrDefault(x => x.Id == userId);
             user.Password = null;
-
             return Ok(user);
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody]User u)
+        public IActionResult Login([FromBody]User user)
         {
-            string username = u.UserName;
-            string password = u.Password;
+            string username = user.UserName;
+            string password = user.Password;
 
             if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
                 return Unauthorized();
 
-            User user = _context.Users.SingleOrDefault(x => x.UserName == username);
+            user = _context.Users.SingleOrDefault(x => x.UserName == username);
 
             if (user == null)
                 return Unauthorized();
 
-            var passwordHasher = new PasswordHasher<User>();
-            if (passwordHasher.VerifyHashedPassword(user, user.Password, password) == 0)
+            var hasher = new PasswordHasher<User>();
+            if (hasher.VerifyHashedPassword(user, user.Password, password) == 0)
                 return Unauthorized();
 
             return AuthResult(user);
         }
 
         [HttpPost("register")]
-        public IActionResult Register([FromBody]User u)
+        public IActionResult Register([FromBody]User user)
         {
-            string username = u.UserName;
-            string password = u.Password;
+            string username = user.UserName;
+            string password = user.Password;
 
             if (string.IsNullOrWhiteSpace(password))
                 return BadRequest("Password is required");
@@ -95,10 +93,8 @@ namespace EvanLindseyApi.Controllers
             if (_context.Users.Any(x => x.UserName == username))
                 return BadRequest("Username " + username + " is already taken");
 
-            User user = u;
-
-            var passwordHasher = new PasswordHasher<User>();
-            string hash = passwordHasher.HashPassword(user, password);
+            var hasher = new PasswordHasher<User>();
+            string hash = hasher.HashPassword(user, password);
             user.Password = hash;
 
             _context.Users.Add(user);
@@ -109,18 +105,19 @@ namespace EvanLindseyApi.Controllers
 
         [Authorize]
         [HttpPut("update")]
-        public IActionResult Update([FromBody]User u)
+        public IActionResult Update([FromBody]User user)
         {
+            string username = user.UserName;
+            string password = user.Password;
+            string firstName = user.FirstName;
+            string lastName = user.LastName;
+
             string id = HttpContext.User.Claims.First().Value;
-            User user = _context.Users.SingleOrDefault(x => x.Id.ToString() == id);
+            int userId = Convert.ToInt32(id);
+            user = _context.Users.SingleOrDefault(x => x.Id == userId);
 
             if (user == null)
                 return BadRequest("User not found");
-
-            string username = u.UserName;
-            string password = u.Password;
-            string firstname = u.FirstName;
-            string lastname = u.LastName;
 
             if (!string.IsNullOrWhiteSpace(username))
             {
@@ -129,20 +126,18 @@ namespace EvanLindseyApi.Controllers
                     if (_context.Users.Any(x => x.UserName == username))
                         return BadRequest("Username " + username + " is already taken");
                 }
-
                 user.UserName = username;
             }
 
             if (!string.IsNullOrWhiteSpace(password))
             {
-                var passwordHasher = new PasswordHasher<User>();
-                string hash = passwordHasher.HashPassword(user, password);
-
+                var hasher = new PasswordHasher<User>();
+                string hash = hasher.HashPassword(user, password);
                 user.Password = hash;
             }
 
-            user.FirstName = firstname;
-            user.LastName = lastname;
+            user.FirstName = firstName;
+            user.LastName = lastName;
 
             _context.Users.Update(user);
             _context.SaveChanges();

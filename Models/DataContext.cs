@@ -24,17 +24,12 @@ namespace EvanLindseyApi
                     .HasColumnType("int(11)")
                     .ValueGeneratedNever();
 
+                entity.Property(e => e.UserId)
+                    .HasColumnType("int(11)");
+
                 entity.Property(e => e.Text)
                     .IsRequired()
                     .HasMaxLength(255);
-
-                entity.Property(e => e.UserId).HasColumnType("int(11)");
-
-                entity.HasOne(d => d.User)
-                    .WithMany(p => p.Message)
-                    .HasForeignKey(d => d.UserId)
-                    .OnDelete(DeleteBehavior.ClientSetNull)
-                    .HasConstraintName("FK_UserMessage");
             });
 
             modelBuilder.Entity<User>(entity =>
@@ -49,16 +44,18 @@ namespace EvanLindseyApi
                     .HasColumnType("int(11)")
                     .ValueGeneratedNever();
 
-                entity.Property(e => e.FirstName).HasMaxLength(255);
-
-                entity.Property(e => e.LastName).HasMaxLength(255);
+                entity.Property(e => e.UserName)
+                    .IsRequired()
+                    .HasMaxLength(255);
 
                 entity.Property(e => e.Password)
                     .IsRequired()
                     .HasMaxLength(255);
 
-                entity.Property(e => e.UserName)
-                    .IsRequired()
+                entity.Property(e => e.FirstName)
+                    .HasMaxLength(255);
+
+                entity.Property(e => e.LastName)
                     .HasMaxLength(255);
             });
         }
